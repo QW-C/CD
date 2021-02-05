@@ -134,7 +134,33 @@ Allocator::Allocator(const Adapter& adapter) :
 	}
 }
 
-Resource Allocator::create_resource(const D3D12_RESOURCE_DESC& desc, D3D12_HEAP_TYPE type, D3D12_RESOURCE_STATES state) {
+Buffer Allocator::create_buffer(const D3D12_RESOURCE_DESC& desc, D3D12_HEAP_TYPE type, D3D12_RESOURCE_STATES state) {
+	Buffer buffer {};
+	buffer.parent = create_resource(buffer.resource, desc, type, state);
+	buffer.va = buffer.resource->GetGPUVirtualAddress();
+
+	return buffer;
+}
+
+Texture Allocator::create_texture(const D3D12_RESOURCE_DESC& desc, D3D12_HEAP_TYPE type, D3D12_RESOURCE_STATES state) {
+	Texture texture {};
+	texture.parent = create_resource(texture.resource, desc, type, state);
+	texture.rtv = {~0ui64};
+	texture.dsv_write = {~0ui64};
+	texture.dsv_read = {~0ui64};
+	
+	return texture;
+}
+
+void Allocator::destroy_buffer(Buffer& buffer) {
+	destroy_resource(buffer.parent);
+}
+
+void Allocator::destroy_texture(Texture& texture) {
+	destroy_resource(texture.parent);
+}
+
+HeapMemory* Allocator::create_resource(ID3D12Resource*& resource, const D3D12_RESOURCE_DESC& desc, D3D12_HEAP_TYPE type, D3D12_RESOURCE_STATES state) {
 	HeapPoolType pool;
 	if(desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER) {
 		switch(type) {
@@ -162,14 +188,12 @@ Resource Allocator::create_resource(const D3D12_RESOURCE_DESC& desc, D3D12_HEAP_
 	D3D12_RESOURCE_ALLOCATION_INFO info = adapter.device->GetResourceAllocationInfo(1 << adapter.node_index, 1, &desc);
 	HeapMemory* memory = heap_pools[pool].allocate(info);
 
-	ID3D12Resource* resource = nullptr;
 	HR_ASSERT(adapter.device->CreatePlacedResource(memory->parent->heap, memory->offset, &desc, state, nullptr, IID_PPV_ARGS(&resource)));
 
-	return {memory, resource};
+	return memory;
 }
 
-void Allocator::destroy_resource(Resource& resource) {
-	HeapMemory* memory = resource.parent;
+void Allocator::destroy_resource(HeapMemory* memory) {
 	memory->allocator->deallocate(memory);
 }
 

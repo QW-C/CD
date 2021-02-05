@@ -31,8 +31,11 @@ class Allocator {
 public:
 	Allocator(const Adapter&);
 
-	Resource create_resource(const D3D12_RESOURCE_DESC&, D3D12_HEAP_TYPE, D3D12_RESOURCE_STATES);
-	void destroy_resource(Resource&);
+	Buffer create_buffer(const D3D12_RESOURCE_DESC&, D3D12_HEAP_TYPE, D3D12_RESOURCE_STATES);
+	Texture create_texture(const D3D12_RESOURCE_DESC&, D3D12_HEAP_TYPE, D3D12_RESOURCE_STATES);
+
+	void destroy_buffer(Buffer&);
+	void destroy_texture(Texture&);
 private:
 	enum HeapPoolType : std::uint8_t {
 		HeapPoolType_UploadHeap,
@@ -47,6 +50,9 @@ private:
 	const Adapter& adapter;
 
 	HeapPool heap_pools[HeapPoolType_Count];
+
+	HeapMemory* create_resource(ID3D12Resource*&, const D3D12_RESOURCE_DESC&, D3D12_HEAP_TYPE, D3D12_RESOURCE_STATES);
+	void destroy_resource(HeapMemory*);
 };
 
 }

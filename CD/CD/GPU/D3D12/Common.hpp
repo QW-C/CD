@@ -537,11 +537,24 @@ constexpr D3D12_RESOURCE_STATES d3d12_resource_state(ResourceState state, D3D12_
 	}
 }
 
+constexpr bool invalid_cpu_handle(CPUHandle handle) {
+	return handle.ptr == ~0ui64;
+}
+
 struct HeapMemory;
 
-struct Resource {
+struct Buffer {
 	HeapMemory* parent;
 	ID3D12Resource* resource;
+	GPUVA va;
+};
+
+struct Texture {
+	HeapMemory* parent;
+	ID3D12Resource* resource;
+	CPUHandle rtv;
+	CPUHandle dsv_write;
+	CPUHandle dsv_read;
 };
 
 struct PipelineState {
@@ -616,8 +629,8 @@ private:
 struct DeviceResources {
 	DeviceResources();
 
-	ResourcePool<Resource> buffer_pool;
-	ResourcePool<Resource> texture_pool;
+	ResourcePool<Buffer> buffer_pool;
+	ResourcePool<Texture> texture_pool;
 	ResourcePool<PipelineState> pipeline_state_pool;
 	ResourcePool<DescriptorTable> descriptor_table_pool;
 	ResourcePool<RenderPass> render_pass_pool;

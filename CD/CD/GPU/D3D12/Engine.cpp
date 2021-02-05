@@ -132,7 +132,7 @@ void CommandList::set_descriptor_heap(const ShaderDescriptorHeap& shader_heap) {
 void CommandList::transition_barrier(const void* command_data) {
 	const LayoutBarrierDesc& desc = *static_cast<const LayoutBarrierDesc*>(command_data);
 	const TextureView& view = desc.texture;
-	const Resource& texture = resources.texture_pool.get(view.texture);
+	const Texture& texture = resources.texture_pool.get(view.texture);
 
 	std::uint32_t subresource = desc.all_subresources ? D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES : texture_subresource(view.mip_level, view.index, view.plane, view.mip_count, view.depth);
 
@@ -145,14 +145,14 @@ void CommandList::uav_barrier(const void* command_data) {
 	D3D12_RESOURCE_BARRIER barriers[max_resource_barriers];
 
 	for(std::size_t i = 0; i < desc.num_buffer_barriers; ++i) {
-		const Resource& buffer = resources.buffer_pool.get(desc.buffers[i]);
+		const Buffer& buffer = resources.buffer_pool.get(desc.buffers[i]);
 		barriers[i].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
 		barriers[i].UAV.pResource = buffer.resource;
 	}
 	command_list->ResourceBarrier(desc.num_buffer_barriers, barriers);
 
 	for(std::size_t i = 0; i < desc.num_texture_barriers; ++i) {
-		const Resource& texture = resources.texture_pool.get(desc.textures[i]);
+		const Texture& texture = resources.texture_pool.get(desc.textures[i]);
 		barriers[i].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
 		barriers[i].UAV.pResource = texture.resource;
 	}
@@ -167,16 +167,22 @@ void CommandList::begin_render_pass(const void* command_data) {
 	for(std::size_t i = 0; i < render_pass.num_render_targets; ++i) {
 		CD_ASSERT(begin_render_pass.color[i].dimension == TextureViewDimension::Texture2D);
 
-		const Resource& render_target = resources.texture_pool.get(begin_render_pass.color[i].texture);
+		Texture& render_target = resources.texture_pool.get(begin_render_pass.color[i].texture);
 
-		D3D12_RENDER_TARGET_VIEW_DESC view_desc {};
-		view_desc.Format = dxgi_format(begin_render_pass.color[i].format);
-		view_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
-		view_desc.Texture2D.MipSlice = begin_render_pass.color[i].mip_level;
 
-		CPUHandle handle = rtv_pool.add_descriptor();
-		adapter.device->CreateRenderTargetView(render_target.resource, &view_desc, handle);
-		render_pass.render_targets[i].cpuDescriptor = handle;
+		if(invalid_cpu_handle(render_target.rtv)) {
+			D3D12_RENDER_TARGET_VIEW_DESC view_desc {};
+			view_desc.Format = dxgi_format(begin_render_pass.color[i].format);
+			view_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+			view_desc.Texture2D.MipSlice = begin_render_pass.color[i].mip_level;
+			
+			CPUHandle handle = rtv_pool.add_descriptor();
+			adapter.device->CreateRenderTargetView(render_target.resource, &view_desc, handle);
+			render_target.rtv = handle;
+		}
+
+
+		render_pass.render_targets[i].cpuDescriptor = render_target.rtv;
 	}
 
 	D3D12_RENDER_PASS_DEPTH_STENCIL_DESC* depth_stencil = render_pass.depth_stencil_enable ? &render_pass.depth_stencil_target : nullptr;
@@ -184,8 +190,7 @@ void CommandList::begin_render_pass(const void* command_data) {
 		CD_ASSERT(begin_render_pass.depth_stencil_target.dimension == TextureViewDimension::Texture2D);
 
 
-		const Resource& depth_stencil_target = resources.texture_pool.get(begin_render_pass.depth_stencil_target.texture);
-		CPUHandle handle = dsv_pool.add_descriptor();
+		Texture& depth_stencil_target = resources.texture_pool.get(begin_render_pass.depth_stencil_target.texture);
 
 		D3D12_DSV_FLAGS dsv_flags = D3D12_DSV_FLAG_NONE;
 		if(!begin_render_pass.depth_write) {
@@ -195,13 +200,21 @@ void CommandList::begin_render_pass(const void* command_data) {
 			dsv_flags |= D3D12_DSV_FLAG_READ_ONLY_STENCIL;
 		}
 
-		D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc {
-			dxgi_format(begin_render_pass.depth_stencil_target.format),
-			D3D12_DSV_DIMENSION_TEXTURE2D,
-			dsv_flags
-		};
-		adapter.device->CreateDepthStencilView(depth_stencil_target.resource, &dsv_desc, handle);
-		depth_stencil->cpuDescriptor = handle;
+		CPUHandle* dsv_handle = begin_render_pass.depth_write ? &depth_stencil_target.dsv_write : &depth_stencil_target.dsv_read;
+
+		if(invalid_cpu_handle(*dsv_handle)) {
+			*dsv_handle = dsv_pool.add_descriptor();
+
+			D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc {
+				dxgi_format(begin_render_pass.depth_stencil_target.format),
+				D3D12_DSV_DIMENSION_TEXTURE2D,
+				dsv_flags
+			};
+
+			adapter.device->CreateDepthStencilView(depth_stencil_target.resource, &dsv_desc, *dsv_handle);
+		}
+
+		depth_stencil->cpuDescriptor = *dsv_handle;
 	}
 
 	issue_barriers();
@@ -226,23 +239,14 @@ void CommandList::end_render_pass() {
 	CD_ASSERT(current_render_pass);
 
 	command_list->EndRenderPass();
-
-	for(std::size_t i = 0; i < current_render_pass->num_render_targets; ++i) {
-		rtv_pool.remove_descriptor(current_render_pass->render_targets[i].cpuDescriptor);
-	}
-
-	if(current_render_pass->depth_stencil_enable) {
-		dsv_pool.remove_descriptor(current_render_pass->depth_stencil_target.cpuDescriptor);
-	}
-
 	current_render_pass = nullptr;
 }
 
 void CommandList::copy_buffer(const void* command_data) {
 	const CopyBufferDesc& copy = *static_cast<const CopyBufferDesc*>(command_data);
 
-	const Resource& dst_buffer = resources.buffer_pool.get(copy.dst);
-	const Resource& src_buffer = resources.buffer_pool.get(copy.src);
+	const Buffer& dst_buffer = resources.buffer_pool.get(copy.dst);
+	const Buffer& src_buffer = resources.buffer_pool.get(copy.src);
 
 	issue_barriers();
 	command_list->CopyBufferRegion(dst_buffer.resource, copy.dst_offset, src_buffer.resource, copy.src_offset, copy.num_bytes);
@@ -251,11 +255,11 @@ void CommandList::copy_buffer(const void* command_data) {
 void CommandList::copy_texture(const void* command_data) {
 	const CopyTextureDesc& copy = *static_cast<const CopyTextureDesc*>(command_data);
 
-	const Resource& texture_dst = resources.texture_pool.get(copy.dst.texture);
+	const Texture& texture_dst = resources.texture_pool.get(copy.dst.texture);
 	D3D12_TEXTURE_COPY_LOCATION dst {texture_dst.resource, D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX};
 	dst.SubresourceIndex = texture_subresource(copy.dst.mip_level, copy.dst.index, copy.dst.plane, copy.dst.mip_count, copy.dst.depth);
 
-	const Resource& texture_src = resources.texture_pool.get(copy.src.texture);
+	const Texture& texture_src = resources.texture_pool.get(copy.src.texture);
 	D3D12_TEXTURE_COPY_LOCATION src {texture_src.resource, D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX};
 	src.SubresourceIndex = texture_subresource(copy.src.mip_level, copy.src.index, copy.src.plane, copy.src.mip_count, copy.src.depth);
 
@@ -266,11 +270,11 @@ void CommandList::copy_texture(const void* command_data) {
 void CommandList::copy_buffer_to_texture(const void* command_data) {
 	const CopyBufferToTextureDesc& copy = *static_cast<const CopyBufferToTextureDesc*>(command_data);
 
-	const Resource& texture = resources.texture_pool.get(copy.texture.texture);
+	const Texture& texture = resources.texture_pool.get(copy.texture.texture);
 	D3D12_TEXTURE_COPY_LOCATION dst {texture.resource, D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX};
 	dst.SubresourceIndex = texture_subresource(copy.texture.mip_level, copy.texture.index, copy.texture.plane, copy.texture.mip_count, copy.texture.depth);
 
-	const Resource& buffer = resources.buffer_pool.get(copy.buffer);
+	const Buffer& buffer = resources.buffer_pool.get(copy.buffer);
 	D3D12_TEXTURE_COPY_LOCATION src {};
 	src.pResource = buffer.resource;
 	src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
@@ -288,7 +292,7 @@ void CommandList::copy_buffer_to_texture(const void* command_data) {
 void CommandList::copy_texture_to_buffer(const void* command_data) {
 	const CopyTextureToBufferDesc& copy = *static_cast<const CopyTextureToBufferDesc*>(command_data);
 
-	const Resource& buffer = resources.buffer_pool.get(copy.buffer);
+	const Buffer& buffer = resources.buffer_pool.get(copy.buffer);
 	D3D12_TEXTURE_COPY_LOCATION dst {};
 	dst.pResource = buffer.resource;
 	dst.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
@@ -299,7 +303,7 @@ void CommandList::copy_texture_to_buffer(const void* command_data) {
 	dst.PlacedFootprint.Footprint.Depth = 1;
 	dst.PlacedFootprint.Footprint.RowPitch = copy.row_size;
 
-	const Resource& texture = resources.texture_pool.get(copy.texture.texture);
+	const Texture& texture = resources.texture_pool.get(copy.texture.texture);
 	D3D12_TEXTURE_COPY_LOCATION src {texture.resource, D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX};
 	src.SubresourceIndex = texture_subresource(copy.texture.mip_level, copy.texture.index, copy.texture.plane, copy.texture.mip_count, copy.texture.depth);
 
@@ -326,7 +330,7 @@ void CommandList::dispatch_indirect(const void* command_data, ID3D12CommandSigna
 	const PipelineState& state = resources.pipeline_state_pool.get(desc.compute_pipeline.handle);
 	set_compute_state(state, desc.pipeline_input_state);
 
-	const Resource& args_buffer = resources.buffer_pool.get(desc.args);
+	const Buffer& args_buffer = resources.buffer_pool.get(desc.args);
 	command_list->ExecuteIndirect(dispatch_indirect_signature, 1, args_buffer.resource, desc.offset, 0, 0);
 }
 
@@ -338,8 +342,8 @@ void CommandList::draw(const void* command_data) {
 
 	D3D12_VERTEX_BUFFER_VIEW vbv[max_vertex_buffers] {};
 	if(desc.input_buffer != BufferHandle::Null) {
-		const Resource& input_buffer = resources.buffer_pool.get(desc.input_buffer);
-		GPUVA vertex_va = input_buffer.resource->GetGPUVirtualAddress();
+		const Buffer& input_buffer = resources.buffer_pool.get(desc.input_buffer);
+		GPUVA vertex_va = input_buffer.va;
 
 		for(std::size_t i = 0; i < desc.num_vertex_buffers; ++i) {
 			vbv[i].BufferLocation = vertex_va + desc.vertex_buffer_offsets[i];
@@ -360,8 +364,8 @@ void CommandList::draw(const void* command_data) {
 	command_list->IASetVertexBuffers(0, desc.num_vertex_buffers, vbv);
 
 	if(desc.index_buffer != BufferHandle::Null) {
-		const Resource& index_buffer = resources.buffer_pool.get(desc.index_buffer);
-		GPUVA index_va = index_buffer.resource->GetGPUVirtualAddress() + desc.index_buffer_offset;
+		const Buffer& index_buffer = resources.buffer_pool.get(desc.index_buffer);
+		GPUVA index_va = index_buffer.va + desc.index_buffer_offset;
 
 		D3D12_INDEX_BUFFER_VIEW ibv {
 			index_va,
@@ -383,7 +387,7 @@ void CommandList::copy_to_swapchain(const void* command_data, const SwapChain& s
 
 	D3D12_TEXTURE_COPY_LOCATION dst {swapchain_surface, D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX};
 
-	const Resource& texture_src = resources.texture_pool.get(copy.texture.texture);
+	const Texture& texture_src = resources.texture_pool.get(copy.texture.texture);
 	D3D12_TEXTURE_COPY_LOCATION src {texture_src.resource, D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX};
 	src.SubresourceIndex = texture_subresource(copy.texture.mip_level, copy.texture.index, copy.texture.plane, copy.texture.mip_count, copy.texture.depth);
 
@@ -410,7 +414,7 @@ void CommandList::resolve_timestamps(const void* command_data, ID3D12QueryHeap* 
 
 	CD_ASSERT(resolve.index + resolve.timestamp_count < max_timestamp_queries);
 	CD_ASSERT(resolve.dest != BufferHandle::Null);
-	const Resource& buffer = resources.buffer_pool.get(resolve.dest);
+	const Buffer& buffer = resources.buffer_pool.get(resolve.dest);
 
 	command_list->ResolveQueryData(query_heap, D3D12_QUERY_TYPE_TIMESTAMP, resolve.index, resolve.timestamp_count, buffer.resource, resolve.aligned_offset);
 }
@@ -445,16 +449,16 @@ void CommandList::set_compute_state(const PipelineState& state, const PipelineIn
 				continue;
 			}
 
-			Resource& buffer = resources.buffer_pool.get(rs_state.input_elements[i].buffer.buffer);
+			Buffer& buffer = resources.buffer_pool.get(rs_state.input_elements[i].buffer.buffer);
 			switch(rs_state.input_elements[i].buffer.type) {
 			case DescriptorType::CBV:
-				command_list->SetComputeRootConstantBufferView(i, buffer.resource->GetGPUVirtualAddress() + rs_state.input_elements[i].buffer.offset);
+				command_list->SetComputeRootConstantBufferView(i, buffer.va + rs_state.input_elements[i].buffer.offset);
 				break;
 			case DescriptorType::SRV:
-				command_list->SetComputeRootShaderResourceView(i, buffer.resource->GetGPUVirtualAddress() + rs_state.input_elements[i].buffer.offset);
+				command_list->SetComputeRootShaderResourceView(i, buffer.va + rs_state.input_elements[i].buffer.offset);
 				break;
 			case DescriptorType::UAV:
-				command_list->SetComputeRootUnorderedAccessView(i, buffer.resource->GetGPUVirtualAddress() + rs_state.input_elements[i].buffer.offset);
+				command_list->SetComputeRootUnorderedAccessView(i, buffer.va + rs_state.input_elements[i].buffer.offset);
 				break;
 			}
 			break;
@@ -496,16 +500,16 @@ void CommandList::set_graphics_state(const PipelineState& state, const PipelineI
 				continue;
 			}
 
-			Resource& buffer = resources.buffer_pool.get(rs_state.input_elements[i].buffer.buffer);
+			Buffer& buffer = resources.buffer_pool.get(rs_state.input_elements[i].buffer.buffer);
 			switch(rs_state.input_elements[i].buffer.type) {
 			case DescriptorType::CBV:
-				command_list->SetGraphicsRootConstantBufferView(i, buffer.resource->GetGPUVirtualAddress() + rs_state.input_elements[i].buffer.offset);
+				command_list->SetGraphicsRootConstantBufferView(i, buffer.va + rs_state.input_elements[i].buffer.offset);
 				break;
 			case DescriptorType::SRV:
-				command_list->SetGraphicsRootShaderResourceView(i, buffer.resource->GetGPUVirtualAddress() + rs_state.input_elements[i].buffer.offset);
+				command_list->SetGraphicsRootShaderResourceView(i, buffer.va + rs_state.input_elements[i].buffer.offset);
 				break;
 			case DescriptorType::UAV:
-				command_list->SetGraphicsRootUnorderedAccessView(i, buffer.resource->GetGPUVirtualAddress() + rs_state.input_elements[i].buffer.offset);
+				command_list->SetGraphicsRootUnorderedAccessView(i, buffer.va + rs_state.input_elements[i].buffer.offset);
 				break;
 			}
 			break;

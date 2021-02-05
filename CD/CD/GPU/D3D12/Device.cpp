@@ -75,7 +75,7 @@ BufferHandle Device::create_buffer(const BufferDesc& buffer_desc) {
 		desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 	}
 
-	Resource buffer = allocator.create_resource(desc, d3d12_heap_type(buffer_desc.storage), d3d12_initial_state(buffer_desc.storage));
+	Buffer buffer = allocator.create_buffer(desc, d3d12_heap_type(buffer_desc.storage), d3d12_initial_state(buffer_desc.storage));
 	return static_cast<BufferHandle>(resources.buffer_pool.add(buffer));
 }
 
@@ -99,13 +99,11 @@ TextureHandle Device::create_texture(const TextureDesc& texture_desc) {
 	if(texture_desc.flags & BindFlags_RW) {
 		desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 	}
-	/*if(!(texture_desc.flags & BindFlags_ShaderResource)) {
-		desc.Flags |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
-	}*/
+
 	desc.SampleDesc = {texture_desc.sample_count, 0};
 	desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 
-	Resource texture = allocator.create_resource(desc, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_COMMON);
+	Texture texture = allocator.create_texture(desc, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_COMMON);
 	return static_cast<TextureHandle>(resources.texture_pool.add(texture));
 }
 
@@ -241,13 +239,13 @@ PipelineHandle Device::create_pipeline_input_list(std::uint32_t num_descriptors)
 }
 
 void Device::destroy_buffer(BufferHandle handle) {
-	Resource& buffer = resources.buffer_pool.get(handle);
+	Buffer& buffer = resources.buffer_pool.get(handle);
 	buffer.resource->Release();
 	resources.buffer_pool.remove(static_cast<std::size_t>(handle));
 }
 
 void Device::destroy_texture(TextureHandle handle) {
-	Resource& texture = resources.texture_pool.get(handle);
+	Texture& texture = resources.texture_pool.get(handle);
 	texture.resource->Release();
 	resources.texture_pool.remove(static_cast<std::size_t>(handle));
 }
@@ -281,14 +279,14 @@ void Device::destroy_pipeline_resource(PipelineHandle resource) {
 }
 
 void Device::map_buffer(BufferHandle handle, void** data, std::uint64_t offset, std::uint64_t size) {
-	Resource& buffer = resources.buffer_pool.get(handle);
+	Buffer& buffer = resources.buffer_pool.get(handle);
 	CD_ASSERT(buffer.resource);
 	D3D12_RANGE range {offset, offset + size};
 	buffer.resource->Map(0, &range, data);
 }
 
 void Device::unmap_buffer(BufferHandle handle, std::uint64_t offset, std::uint64_t size) {
-	Resource& buffer = resources.buffer_pool.get(handle);
+	Buffer& buffer = resources.buffer_pool.get(handle);
 	CD_ASSERT(buffer.resource);
 	D3D12_RANGE range {offset, offset + size};
 	buffer.resource->Unmap(0, &range);
@@ -304,7 +302,7 @@ void Device::update_pipeline_input_list(PipelineHandle handle, DescriptorType ty
 	std::uint32_t increment = shader_descriptor_heap.get_increment();
 	CPUHandle start = {list.cpu_start.ptr + offset * increment};
 	for(std::size_t i = 0; i < num_textures; ++i) {
-		Resource& texture = resources.texture_pool.get(views[i].texture);
+		Texture& texture = resources.texture_pool.get(views[i].texture);
 		CPUHandle cpu_handle = {start.ptr + i * increment};
 		switch(type) {
 		case DescriptorType::SRV: {
@@ -334,7 +332,7 @@ void Device::update_pipeline_input_list(PipelineHandle handle, DescriptorType ty
 	std::uint32_t increment = shader_descriptor_heap.get_increment();
 	CPUHandle start = {list.cpu_start.ptr + offset * increment};
 	for(std::size_t i = 0; i < num_buffers; ++i) {
-		const Resource& buffer = resources.buffer_pool.get(views[i].buffer);
+		const Buffer& buffer = resources.buffer_pool.get(views[i].buffer);
 		CPUHandle cpu_handle = {start.ptr + i * increment};
 		switch(type) {
 		case DescriptorType::SRV: {
