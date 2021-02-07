@@ -18,7 +18,7 @@ void RenderQueue::setup(GPUBufferAllocator& allocator, const void* queue_data, s
 	queue_data_buffer = buffer_allocator->create_buffer(num_bytes, queue_data);
 }
 
-void RenderQueue::add_mesh(const MaterialInstance* material, const Mesh& mesh, const Matrix4x4& local_to_world, std::uint32_t transform_index) {
+void RenderQueue::add_mesh(const MaterialInstance* material, const Mesh& mesh, const Matrix4x4&, std::uint32_t transform_index) {
 	MeshInstance instance;
 	instance.mesh = &mesh;
 	instance.material = material;
@@ -28,7 +28,7 @@ void RenderQueue::add_mesh(const MaterialInstance* material, const Mesh& mesh, c
 	instance.instance_data = buffer_allocator->create_buffer(sizeof(MeshInstanceBuffer), &instance_constants);
 
 	meshes.push_back(instance);
-	sort_keys.push_back(get_sort_key(mesh, local_to_world.m[3][2], material));
+	sort_keys.push_back(0);
 	indices.push_back(static_cast<std::uint32_t>(indices.size()));
 }
 
@@ -214,11 +214,16 @@ void Renderer::build(const Camera& camera) {
 		camera.get_view_projection()
 	};
 	depth_queue.setup(frame.get_buffer_allocator(), &depth_constants, sizeof(DepthPassConstants));
-
+	
 	for(std::size_t model_index = 0; model_index < frame_models.size(); ++model_index) {
-		const Matrix4x4 transform = frame_transforms[model_index];
 		const auto& meshes = frame_models[model_index]->get_meshes();
 		const auto& materials = frame_models[model_index]->get_materials();
+
+		const Matrix4x4& transform = frame_transforms[model_index];
+
+		/*DirectX::XMMATRIX t = DirectX::XMLoadFloat4x4(&transform) * DirectX::XMLoadFloat4x4(&camera.get_view());
+		Matrix4x4 transform_vs;
+		DirectX::XMStoreFloat4x4(&transform_vs, t);*/
 
 		for(std::size_t mesh_index = 0; mesh_index < meshes.size(); ++mesh_index) {
 			const Mesh& mesh = *meshes[mesh_index];
@@ -282,7 +287,11 @@ void Renderer::draw_depth(GPU::CommandBuffer& command_buffer) {
 
 	const GPU::Viewport& vp = frame.get_viewport();
 
-	for(const MeshInstance& instance : depth_queue.get_meshes()) {
+	const auto& indices = depth_queue.get_indices();
+	const auto& depth_queue_meshes = depth_queue.get_meshes();
+	for(std::size_t index = 0; index < indices.size(); ++index) {
+		const MeshInstance& instance = depth_queue_meshes[index];
+
 		const IndexedInputBuffer& input_buffer = instance.mesh->get_input_buffer();
 
 		set_instance_state(input_state, instance);

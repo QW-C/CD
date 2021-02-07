@@ -226,7 +226,7 @@ inline const CursorPosition& Window::cursor_position() const {
 }
 
 template<typename Fun>
-void Window::set_resize_callback(Fun&& f) {
+inline void Window::set_resize_callback(Fun&& f) {
 	resize_func = f;
 }
 

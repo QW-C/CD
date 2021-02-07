@@ -12,6 +12,7 @@ public:
 
 	const Matrix4x4& get_projection() const;
 	const Matrix4x4& get_transform() const;
+	const Matrix4x4& get_view() const;
 	const Matrix4x4& get_view_projection() const;
 	const Matrix4x4& get_inv_projection() const;
 	const Matrix4x4& get_inv_view_projection() const;

@@ -30,7 +30,7 @@ public:
 	virtual void update_pipeline_input_list(PipelineHandle, DescriptorType, const BufferView* views, std::uint64_t num_buffers, std::uint64_t offset) = 0;
 
 	virtual void map_buffer(BufferHandle, void** data, std::uint64_t offset, std::uint64_t size) = 0;
-	virtual void unmap_buffer(BufferHandle buffer, std::uint64_t offset, std::uint64_t size) = 0;
+	virtual void unmap_buffer(BufferHandle, std::uint64_t offset, std::uint64_t size) = 0;
 
 	virtual void signal(CommandQueueType) = 0;
 	virtual void wait(const Signal& producer, CommandQueueType queue) = 0;

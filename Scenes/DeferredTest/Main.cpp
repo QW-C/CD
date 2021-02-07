@@ -125,8 +125,8 @@ DeferredTest::~DeferredTest() = default;
 
 void DeferredTest::run() {
 	CursorPosition pos = window->cursor_position();
-	float pf = 100.f;
-	float rf = 15.f;
+	float pf = 50.f;
+	float rf = 10.f;
 	
 	while(!window->closed()) {
 		clock.reset();

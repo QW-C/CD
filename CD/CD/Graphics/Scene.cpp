@@ -21,6 +21,10 @@ const Matrix4x4& Camera::get_transform() const {
 	return transform;
 }
 
+const Matrix4x4& Camera::get_view() const {
+	return world_to_view;
+}
+
 const Matrix4x4& Camera::get_view_projection() const {
 	return view_projection;
 }
