@@ -574,6 +574,7 @@ struct Adapter {
 	ID3D12Device6* device;
 	std::uint32_t node_index;
 	DeviceFeatureInfo feature_info;
+	D3D_FEATURE_LEVEL feature_level;
 };
 
 struct SwapChain {

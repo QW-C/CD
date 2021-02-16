@@ -357,7 +357,7 @@ void Device::update_pipeline_input_list(PipelineHandle handle, DescriptorType ty
 		}
 		case DescriptorType::CBV: {
 			D3D12_CONSTANT_BUFFER_VIEW_DESC cbv {};
-			cbv.BufferLocation = buffer.resource->GetGPUVirtualAddress() + views[i].offset;
+			cbv.BufferLocation = buffer.va + views[i].offset;
 			cbv.SizeInBytes = views[i].size;
 			adapter.device->CreateConstantBufferView(&cbv, cpu_handle);
 			break;

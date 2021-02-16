@@ -11,7 +11,7 @@ using Microsoft::WRL::ComPtr;
 constexpr const wchar_t* shader_profiles[] {
 	L"cs_6_0",
 	L"vs_6_0",
-	L"ps_6_0",
+	L"ps_6_0"
 };
 
 ShaderCompiler::ShaderCompiler() {

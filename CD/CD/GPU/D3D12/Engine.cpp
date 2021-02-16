@@ -24,7 +24,6 @@ CommandList::CommandList(const Adapter& adapter, const Fence& fence, DeviceResou
 	dsv_pool(adapter, cpu_descriptor_count, D3D12_DESCRIPTOR_HEAP_TYPE_DSV),
 	command_list(nullptr),
 	current_allocator(nullptr),
-	bind_point(),
 	barrier_buffer(),
 	graphics_pso(),
 	compute_pso(),
@@ -104,8 +103,6 @@ void CommandList::reset() {
 	if(descriptor_heap) {
 		set_descriptor_heap(*descriptor_heap);
 	}
-
-	bind_point = BindPoint::None;
 
 	graphics_pso = {nullptr, nullptr};
 	graphics_arguments.cleared = true;
@@ -470,10 +467,9 @@ void CommandList::set_compute_state(const PipelineState& state, const PipelineIn
 
 	compute_arguments.cleared = false;
 
-	if(ID3D12PipelineState* pso = state.pso; bind_point != BindPoint::Compute || pso != compute_pso.pso) {
+	if(ID3D12PipelineState* pso = state.pso; pso != compute_pso.pso) {
 		command_list->SetPipelineState(pso);
 		compute_pso.pso = pso;
-		bind_point = BindPoint::Compute;
 	}
 }
 
@@ -521,10 +517,9 @@ void CommandList::set_graphics_state(const PipelineState& state, const PipelineI
 
 	graphics_arguments.cleared = false;
 
-	if(ID3D12PipelineState* pso = state.pso; bind_point != BindPoint::Graphics || pso != graphics_pso.pso) {
+	if(ID3D12PipelineState* pso = state.pso; pso != graphics_pso.pso) {
 		command_list->SetPipelineState(pso);
 		graphics_pso.pso = pso;
-		bind_point = BindPoint::Graphics;
 	}
 }
 
@@ -574,6 +569,7 @@ Engine::Engine(const Adapter& adapter, DeviceResources& resources, const ShaderD
 		HR_ASSERT(adapter.device->CreateCommandSignature(&dispatch_indirect_desc, nullptr, IID_PPV_ARGS(&dispatch_indirect_signature)));
 	}
 }
+
 Engine::~Engine() {
 	sync();
 

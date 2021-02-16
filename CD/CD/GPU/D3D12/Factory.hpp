@@ -15,6 +15,7 @@ public:
 	std::size_t get_device_count() const final;
 private:
 	IDXGIFactory7* factory;
+	bool debug_layer_enabled;
 
 	std::vector<std::unique_ptr<Adapter>> adapters;
 	std::vector<std::unique_ptr<Device>> devices;

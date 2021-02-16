@@ -88,12 +88,6 @@ private:
 	std::vector<CommandAllocator> allocators;
 	CommandAllocator* current_allocator;
 
-	enum class BindPoint {
-		None,
-		Compute,
-		Graphics
-	};
-
 	struct BarrierBuffer {
 		D3D12_RESOURCE_BARRIER barriers[10];
 		std::uint32_t barrier_count;
@@ -104,7 +98,6 @@ private:
 		bool cleared;
 	};
 
-	BindPoint bind_point;
 	BarrierBuffer barrier_buffer;
 	PipelineState graphics_pso;
 	PipelineState compute_pso;

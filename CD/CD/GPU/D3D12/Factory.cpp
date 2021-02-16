@@ -10,15 +10,17 @@ constexpr D3D_FEATURE_LEVEL d3d_feature_levels[] {
 	D3D_FEATURE_LEVEL_11_0
 };
 
-
 Factory::Factory() :
-	factory(nullptr) {
+	factory(nullptr),
+	debug_layer_enabled(false) {
+
 	IDXGraphicsAnalysis* ga = nullptr;
-	if(ID3D12Debug* debug_controller = nullptr; DXGIGetDebugInterface1(0, IID_PPV_ARGS(&ga)) == E_NOINTERFACE) {
+	if(ID3D12Debug1* debug_controller = nullptr; DXGIGetDebugInterface1(0, IID_PPV_ARGS(&ga)) == E_NOINTERFACE) {
 		if(SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug_controller)))) {
 			debug_controller->EnableDebugLayer();
-
 			debug_controller->Release();
+
+			debug_layer_enabled = true;
 		}
 	}
 
@@ -33,10 +35,11 @@ Factory::Factory() :
 			continue;
 		}
 
-		D3D12_FEATURE_DATA_FEATURE_LEVELS feature_levels {static_cast<UINT>(std::size(d3d_feature_levels)), d3d_feature_levels, D3D_FEATURE_LEVEL_11_0};
+		D3D12_FEATURE_DATA_FEATURE_LEVELS feature_level {static_cast<UINT>(std::size(d3d_feature_levels)), d3d_feature_levels, D3D_FEATURE_LEVEL_11_0};
 		ID3D12Device* device = nullptr;
 		if(SUCCEEDED(D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device)))) {
-			HR_ASSERT(device->CheckFeatureSupport(D3D12_FEATURE_FEATURE_LEVELS, &feature_levels, sizeof(feature_levels)));
+			HR_ASSERT(device->CheckFeatureSupport(D3D12_FEATURE_FEATURE_LEVELS, &feature_level, sizeof(feature_level)));
+
 			D3D12_FEATURE_DATA_ARCHITECTURE1 architecture1 {};
 			HR_ASSERT(device->CheckFeatureSupport(D3D12_FEATURE_ARCHITECTURE1, &architecture1, sizeof(architecture1)));
 
@@ -44,16 +47,17 @@ Factory::Factory() :
 			info.uma = architecture1.UMA;
 
 			IDXGIAdapter3* dxgi_adapter = nullptr;
-			adapter->QueryInterface<IDXGIAdapter3>(&dxgi_adapter);
+			HR_ASSERT(adapter->QueryInterface<IDXGIAdapter3>(&dxgi_adapter));
 			adapter->Release();
 
-			unsigned node_count = device->GetNodeCount();
+			UINT node_count = device->GetNodeCount();
 
 			for(std::uint32_t node_index = 0; node_index < node_count; ++node_index) {
 				auto& adapter_ptr = adapters.emplace_back(std::make_unique<Adapter>());
 				adapter_ptr->adapter = dxgi_adapter;
-				adapter_ptr->feature_info = info;
 				adapter_ptr->node_index = node_index;
+				adapter_ptr->feature_info = info;
+				adapter_ptr->feature_level = feature_level.MaxSupportedFeatureLevel;
 			}
 
 			device->Release();
@@ -78,7 +82,36 @@ Device* Factory::create_device(const CreateDeviceDesc& desc, std::size_t index) 
 	if(adapter.feature_info.uma && !desc.allow_uma) {
 		return nullptr;
 	}
+	
 	HR_ASSERT(D3D12CreateDevice(adapter.adapter, D3D_FEATURE_LEVEL_11_1, IID_PPV_ARGS(&adapter.device)));
+
+	if(debug_layer_enabled) {
+		ID3D12InfoQueue* info_queue = nullptr;
+		HR_ASSERT(adapter.device->QueryInterface(&info_queue));
+
+		D3D12_MESSAGE_ID silenced_list[] {
+			D3D12_MESSAGE_ID_CREATEINPUTLAYOUT_EMPTY_LAYOUT
+		};
+
+		D3D12_INFO_QUEUE_FILTER_DESC deny_list {
+			0,
+			nullptr,
+			0,
+			nullptr,
+			static_cast<UINT>(std::size(silenced_list)),
+			silenced_list
+		};
+
+		D3D12_INFO_QUEUE_FILTER deny_filter {
+			{},
+			deny_list
+		};
+
+		info_queue->AddStorageFilterEntries(&deny_filter);
+
+		info_queue->Release();
+	}
+
 	return devices.emplace_back(std::make_unique<Device>(adapter, desc.swapchain, factory)).get();
 }
 

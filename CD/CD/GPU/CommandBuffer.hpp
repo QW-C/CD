@@ -156,7 +156,7 @@ class CommandBuffer {
 public:
 	CommandBuffer(std::size_t size = default_command_buffer_size);
 
-	template<typename CommandDesc> void add_command(CommandDesc& desc);
+	template<typename CommandDesc> void add_command(CommandDesc&);
 	void reset();
 
 	const std::uint8_t* get_commands() const;
