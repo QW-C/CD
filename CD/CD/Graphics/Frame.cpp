@@ -1,5 +1,3 @@
-#pragma once
-
 #include <CD/Graphics/Frame.hpp>
 
 namespace CD {
@@ -81,7 +79,7 @@ void GPUBufferAllocator::lock(const GPU::Signal& frame_fence) {
 	}
 }
 
-void GPUBufferAllocator::reset(GPU::Signal& completed_fence) {
+void GPUBufferAllocator::reset(const GPU::Signal& completed_fence) {
 	while(!cache.empty() && cache.front().first.value <= completed_fence.value) {
 		cache.pop();
 	}

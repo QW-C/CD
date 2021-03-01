@@ -20,7 +20,7 @@ public:
 
 	BufferAllocation create_buffer(std::uint32_t buffer_size, const void* data = nullptr, bool upload = true);
 	void lock(const GPU::Signal& frame_fence);
-	void reset(GPU::Signal& completed_fence);
+	void reset(const GPU::Signal& completed_fence);
 
 	void update_data();
 	const GPU::Signal& flush();

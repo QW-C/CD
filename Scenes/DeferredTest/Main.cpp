@@ -15,15 +15,6 @@ void CameraController::update() {
 	q = XMQuaternionRotationRollPitchYaw(dy, dx, 0.f);
 	XMStoreFloat4(&transform.orientation, q);
 
-	/*
-	XMVECTOR x {1.f};
-	XMVECTOR y {0.f, 1.f};
-	XMVECTOR qx = XMQuaternionRotationAxis(y, dx);
-	XMVECTOR qy = XMQuaternionRotationAxis(x, dy);
-	q = XMQuaternionMultiply(q, qx);
-	q = XMQuaternionMultiply(q, qy);
-	*/
-
 	XMVECTOR v = XMLoadFloat3(&transform.position);
 	XMVECTOR d = XMLoadFloat3(&dp);
 	XMVECTOR dir = XMVector3Rotate(d, q);
@@ -125,11 +116,10 @@ DeferredTest::~DeferredTest() = default;
 
 void DeferredTest::run() {
 	CursorPosition pos = window->cursor_position();
-	float pf = 50.f;
-	float rf = 10.f;
+	float pf = 20.f;
+	float rf = 5.f;
 	
 	while(!window->closed()) {
-		clock.reset();
 		const float dt = static_cast<float>(clock.get_elapsed_time_ms());
 
 		window->poll_messages();
@@ -174,6 +164,7 @@ void DeferredTest::run() {
 		}
 
 		graphics->render();
+		clock.reset();
 	}
 
 	graphics->get_frame().wait();

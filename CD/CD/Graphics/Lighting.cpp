@@ -1,5 +1,3 @@
-#pragma once
-
 #include <CD/Graphics/Lighting.hpp>
 #include <CD/Graphics/Scene.hpp>
 #include <CD/Graphics/Material.hpp>

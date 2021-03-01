@@ -1,5 +1,3 @@
-#pragma once
-
 #include <CD/Graphics/Renderer.hpp>
 #include <algorithm>
 #include <DirectXCollision.h>
@@ -220,10 +218,6 @@ void Renderer::build(const Camera& camera) {
 		const auto& materials = frame_models[model_index]->get_materials();
 
 		const Matrix4x4& transform = frame_transforms[model_index];
-
-		/*DirectX::XMMATRIX t = DirectX::XMLoadFloat4x4(&transform) * DirectX::XMLoadFloat4x4(&camera.get_view());
-		Matrix4x4 transform_vs;
-		DirectX::XMStoreFloat4x4(&transform_vs, t);*/
 
 		for(std::size_t mesh_index = 0; mesh_index < meshes.size(); ++mesh_index) {
 			const Mesh& mesh = *meshes[mesh_index];

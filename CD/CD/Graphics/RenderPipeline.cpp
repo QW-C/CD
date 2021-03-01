@@ -1,5 +1,3 @@
-#pragma once
-
 #include <CD/Graphics/RenderPipeline.hpp>
 #include <CD/Graphics/Renderer.hpp>
 #include <CD/Graphics/Sky.hpp>

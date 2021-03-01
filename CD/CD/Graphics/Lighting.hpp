@@ -42,5 +42,4 @@ private:
 	const ComputePipeline* tonemapping_pipeline;
 };
 
-
 }

@@ -1,5 +1,3 @@
-#pragma once
-
 #include <CD/Graphics/Sky.hpp>
 #include <CD/Graphics/Frame.hpp>
 #include <CD/GPU/Shader.hpp>

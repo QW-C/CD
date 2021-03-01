@@ -1,5 +1,3 @@
-#pragma once
-
 #include <CD/Loader/ResourceLoader.hpp>
 #include <CD/Graphics/Frame.hpp>
 #include <CD/Graphics/Model.hpp>

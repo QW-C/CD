@@ -15,7 +15,7 @@ public:
 
 	BufferHandle create_buffer(const BufferDesc&) final;
 	TextureHandle create_texture(const TextureDesc&) final;
-	PipelineHandle create_render_pass(const RenderPassDesc&);
+	PipelineHandle create_render_pass(const RenderPassDesc&) final;
 	PipelineHandle create_pipeline_input_list(std::uint32_t num_descriptors) final;
 	PipelineHandle create_pipeline_state(const GraphicsPipelineDesc&, const PipelineInputLayout&) final;
 	PipelineHandle create_pipeline_state(const ComputePipelineDesc&, const PipelineInputLayout&) final;

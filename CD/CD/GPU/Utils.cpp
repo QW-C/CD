@@ -1,5 +1,3 @@
-#pragma once
-
 #include <CD/GPU/Utils.hpp>
 #include <CD/GPU/D3D12/Common.hpp>
 #include <DirectXTex/DirectXTex.h>

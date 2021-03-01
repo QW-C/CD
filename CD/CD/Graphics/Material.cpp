@@ -1,5 +1,3 @@
-#pragma once
-
 #include <CD/Graphics/Material.hpp>
 
 namespace CD {
