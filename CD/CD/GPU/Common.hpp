@@ -572,7 +572,6 @@ struct SwapChainDesc {
 	std::uint32_t height;
 };
 
-
 struct DeviceFeatureInfo {
 	bool uma;
 	std::uint64_t timestamp_frequency[CommandQueueType_Count];

@@ -112,7 +112,7 @@ Device* Factory::create_device(const CreateDeviceDesc& desc, std::size_t index) 
 		info_queue->Release();
 	}
 
-	return devices.emplace_back(std::make_unique<Device>(adapter, desc.swapchain, factory)).get();
+	return devices.emplace_back(std::make_unique<Device>(adapter, compiler, desc.swapchain, factory)).get();
 }
 
 }

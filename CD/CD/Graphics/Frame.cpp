@@ -354,7 +354,7 @@ const GPU::Viewport& Frame::get_viewport() const {
 }
 
 GPU::ShaderCompiler& Frame::get_shader_compiler() {
-	return shader_compiler;
+	return device.get_shader_compiler();
 }
 
 GPU::Device& Frame::get_device() {

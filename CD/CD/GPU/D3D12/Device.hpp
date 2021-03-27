@@ -3,6 +3,7 @@
 #include <CD/GPU/D3D12/Common.hpp>
 #include <CD/GPU/D3D12/Allocator.hpp>
 #include <CD/GPU/D3D12/Engine.hpp>
+#include <CD/GPU/Shader.hpp>
 #include <CD/GPU/Device.hpp>
 #include <memory>
 
@@ -10,7 +11,7 @@ namespace CD::GPU::D3D12 {
 
 class Device : public GPU::Device {
 public:
-	Device(Adapter&, const SwapChainDesc*, IDXGIFactory7*);
+	Device(Adapter&, ShaderCompiler&, const SwapChainDesc*, IDXGIFactory7*);
 	~Device();
 
 	BufferHandle create_buffer(const BufferDesc&) final;
@@ -38,6 +39,7 @@ public:
 
 	void resize_buffers(std::uint32_t width, std::uint32_t height) final;
 	DeviceFeatureInfo report_feature_info() final;
+	ShaderCompiler& get_shader_compiler() final;
 private:
 	Adapter& adapter;
 	Allocator allocator;
@@ -47,6 +49,8 @@ private:
 
 	DescriptorPool rtv_pool;
 	std::unique_ptr<SwapChain> swapchain;
+
+	ShaderCompiler& compiler;
 
 	ID3D12RootSignature* create_root_signature(const PipelineInputLayout&, bool ia = false);
 };

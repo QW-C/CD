@@ -5,6 +5,7 @@
 namespace CD::GPU {
 
 class CommandBuffer;
+class ShaderCompiler;
 
 class Device {
 public:
@@ -40,6 +41,7 @@ public:
 
 	virtual void resize_buffers(std::uint32_t width, std::uint32_t height) = 0;
 	virtual DeviceFeatureInfo report_feature_info() = 0;
+	virtual ShaderCompiler& get_shader_compiler() = 0;
 };
 
 }

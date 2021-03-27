@@ -127,8 +127,6 @@ public:
 private:
 	static constexpr std::uint32_t max_latency = 3;
 
-	GPU::ShaderCompiler shader_compiler;
-
 	GPU::Device& device;
 	GPU::CommandBuffer command_buffer;
 	GPU::Viewport viewport;

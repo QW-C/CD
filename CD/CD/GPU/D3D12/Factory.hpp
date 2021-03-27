@@ -19,6 +19,8 @@ private:
 
 	std::vector<std::unique_ptr<Adapter>> adapters;
 	std::vector<std::unique_ptr<Device>> devices;
+
+	ShaderCompiler compiler;
 };
 
 }

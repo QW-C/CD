@@ -2,12 +2,13 @@
 
 namespace CD::GPU::D3D12 {
 
-Device::Device(Adapter& adapter, const SwapChainDesc* swapchain_desc, IDXGIFactory7* factory) :
+Device::Device(Adapter& adapter, ShaderCompiler& compiler, const SwapChainDesc* swapchain_desc, IDXGIFactory7* factory) :
 	adapter(adapter),
 	allocator(adapter),
 	shader_descriptor_heap(adapter),
 	engine(adapter, resources, shader_descriptor_heap),
-	rtv_pool(adapter, swapchain_backbuffer_count, D3D12_DESCRIPTOR_HEAP_TYPE_RTV) {
+	rtv_pool(adapter, swapchain_backbuffer_count, D3D12_DESCRIPTOR_HEAP_TYPE_RTV),
+	compiler(compiler) {
 
 	if(swapchain_desc) {
 		DXGI_SWAP_CHAIN_DESC1 desc {};
@@ -405,6 +406,10 @@ void Device::resize_buffers(std::uint32_t width, std::uint32_t height) {
 
 DeviceFeatureInfo Device::report_feature_info() {
 	return adapter.feature_info;
+}
+
+ShaderCompiler& Device::get_shader_compiler() {
+	return compiler;
 }
 
 ID3D12RootSignature* Device::create_root_signature(const PipelineInputLayout& layout, bool ia) {
